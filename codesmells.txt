@@ -1,0 +1,17 @@
+Code smells encontrados
+
+En la clase Cuenta:
+	- Duplicated Code: Se repite codigo en los metodos poner y sacar. Se repite la validacion de quitar montos negativos.
+	
+	- No se si es un code smells: Se inicializa la variable saldo en el constructor y por fuera.
+	
+	- Data clumps: el metodo agregarMovimiento recibe por separado atributos del objeto movimiento. Podria recibir por parametro el objeto.
+	
+	- Duplicated code: En el metodo getMontoExtraido se repite codigo que se encuentra en el metodo fueExtraccion de la clase movimiento.
+	
+	- Long method: en los metodos poner y sacar hay funcionalidad que se podria descomponer en submetodos.	
+	- type test: en el metodo cantidad de movimiento se pregunta si el movimiento es un deposito.
+	
+En la clase Movimiento:
+	
+	- Misplaced method: En el metodo agregateA se usa al objeto cuenta para agregar saldo y agregar movimiento. Se puede dar la responsabilidad a cuenta de hacerlo.
