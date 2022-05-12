@@ -5,20 +5,21 @@ import dds.monedero.exceptions.MaximoExtraccionDiarioException;
 import dds.monedero.exceptions.MontoNegativoException;
 import dds.monedero.exceptions.SaldoMenorException;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Cuenta {
 
-  private double saldo = 0;
+  private BigDecimal saldo;
   private List<Movimiento> movimientos = new ArrayList<>();
 
   public Cuenta() {
-    saldo = 0;
+    saldo = new BigDecimal(0);
   }
 
-  public Cuenta(double montoInicial) {
+  public Cuenta(BigDecimal montoInicial) {
     saldo = montoInicial;
   }
 
@@ -26,55 +27,73 @@ public class Cuenta {
     this.movimientos = movimientos;
   }
 
-  public void poner(double cuanto) {
-    if (cuanto <= 0) {
-      throw new MontoNegativoException(cuanto + ": el monto a ingresar debe ser un valor positivo");
-    }
+  public long cantidadMovimientos(){
+    return getMovimientos().stream().filter(movimiento -> movimiento.isDeposito()).count();
+  }
 
-    if (getMovimientos().stream().filter(movimiento -> movimiento.isDeposito()).count() >= 3) {
+  public BigDecimal limiteExtraccion(){
+    BigDecimal limite = new BigDecimal(1000).subtract(getMontoExtraidoA(LocalDate.now()));
+    return limite;
+  }
+
+  public void validarMontoNegativo(BigDecimal monto){
+    if (monto.doubleValue() <= 0) {
+      throw new MontoNegativoException(monto + ": el monto a ingresar debe ser un valor positivo");
+    }
+  }
+
+  public void validarCantidadDeMovimiento(){
+    if (this.cantidadMovimientos() >= 3){
       throw new MaximaCantidadDepositosException("Ya excedio los " + 3 + " depositos diarios");
     }
-
-    new Movimiento(LocalDate.now(), cuanto, true).agregateA(this);
   }
 
-  public void sacar(double cuanto) {
-    if (cuanto <= 0) {
-      throw new MontoNegativoException(cuanto + ": el monto a ingresar debe ser un valor positivo");
-    }
-    if (getSaldo() - cuanto < 0) {
+  public void validarHaySaldo(BigDecimal montoAExtraer){
+    if (getSaldo().subtract(montoAExtraer).intValue() < 0 ){
       throw new SaldoMenorException("No puede sacar mas de " + getSaldo() + " $");
     }
-    double montoExtraidoHoy = getMontoExtraidoA(LocalDate.now());
-    double limite = 1000 - montoExtraidoHoy;
-    if (cuanto > limite) {
-      throw new MaximoExtraccionDiarioException("No puede extraer mas de $ " + 1000
-          + " diarios, límite: " + limite);
-    }
-    new Movimiento(LocalDate.now(), cuanto, false).agregateA(this);
   }
 
-  public void agregarMovimiento(LocalDate fecha, double cuanto, boolean esDeposito) {
-    Movimiento movimiento = new Movimiento(fecha, cuanto, esDeposito);
+  public void validarLimiteExtraccion(BigDecimal cuanto){
+    if (cuanto.compareTo(limiteExtraccion()) > 0 ){
+      throw new MaximoExtraccionDiarioException("No puede extraer mas de $ " + 1000
+          + " diarios, límite: " + limiteExtraccion());
+    }
+  }
+
+  public void poner(BigDecimal cuanto) {
+    validarMontoNegativo(cuanto);
+    validarCantidadDeMovimiento();
+    this.agregarMovimiento(new Movimiento(LocalDate.now(), cuanto, true));
+  }
+
+  public void sacar(BigDecimal cuanto) {
+    validarMontoNegativo(cuanto);
+    validarHaySaldo(cuanto);
+    validarLimiteExtraccion(cuanto);
+    agregarMovimiento(new Movimiento(LocalDate.now(), cuanto, false));
+  }
+
+
+  public void agregarMovimiento(Movimiento movimiento) {
     movimientos.add(movimiento);
   }
 
-  public double getMontoExtraidoA(LocalDate fecha) {
+  public BigDecimal getMontoExtraidoA(LocalDate fecha) {
     return getMovimientos().stream()
-        .filter(movimiento -> !movimiento.isDeposito() && movimiento.getFecha().equals(fecha))
-        .mapToDouble(Movimiento::getMonto)
-        .sum();
+        .filter(movimiento -> !movimiento.fueExtraido(fecha))
+        .map(movimiento-> movimiento.getMonto()).reduce(BigDecimal.ZERO, BigDecimal::add);
   }
 
   public List<Movimiento> getMovimientos() {
     return movimientos;
   }
 
-  public double getSaldo() {
-    return saldo;
+  public BigDecimal getSaldo(){
+    return saldo.add(getMovimientos().stream().map(movimiento->movimiento.getMonto()).reduce(BigDecimal.ZERO,BigDecimal::add));
   }
 
-  public void setSaldo(double saldo) {
+  public void setSaldo(BigDecimal saldo) {
     this.saldo = saldo;
   }
 
